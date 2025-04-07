@@ -10,6 +10,7 @@ type Service struct {
 	Name      string `yaml:"name"`
 	Endpoint  string `yaml:"endpoint"`
 	Threshold int    `yaml:"threshold"`
+	Heal      string `yaml:"heal"`
 }
 
 func LoadConfig(path string) (*Config, error) {

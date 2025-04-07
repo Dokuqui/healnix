@@ -2,6 +2,8 @@ services:
   - name: "api-server"
     endpoint: "http://localhost:8080/health"
     threshold: 500
+    heal: "restart"
   - name: "db-service"
     endpoint: "http://localhost:5432"
     threshold: 200
+    heal: "restart"
