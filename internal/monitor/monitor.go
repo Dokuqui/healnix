@@ -53,19 +53,26 @@ func (m *Monitor) checkService(svc config.Service) {
 		status.Latency = latency
 
 		if err != nil {
+			status.ConsecutiveFails++
 			status.Healthy = false
-			log.Printf("Service %s failed: %v", svc.Name, err)
+			log.Printf("Service %s failed: %v (fail count: %d)", svc.Name, err, status.ConsecutiveFails)
 		} else if latency > int64(svc.Threshold) {
+			status.ConsecutiveFails++
 			status.Healthy = false
-			log.Printf("Service %s unhealthy (latency: %dms > %dms)", svc.Name, latency, svc.Threshold)
+			log.Printf("Service %s unhealthy (latency: %dms > %dms, fail count: %d)", svc.Name, latency, svc.Threshold, status.ConsecutiveFails)
 		} else {
+			status.ConsecutiveFails = 0
 			status.Healthy = true
 			log.Printf("Service %s healthy (latency: %dms)", svc.Name, latency)
 		}
 
-		if !status.Healthy && svc.Heal != "" {
+		if !status.Healthy && svc.Heal != "" && status.ConsecutiveFails >= svc.FailureThreshold {
 			healer := healer.NewHealer()
-			go healer.Heal(*status)
+			success := healer.Heal(status, svc.ContainerName)
+			if success {
+				status.ConsecutiveFails = 0
+			}
+			log.Printf("Service %s heal history: %d attempts", svc.Name, len(status.HealHistory))
 		}
 		m.mu.Unlock()
 
