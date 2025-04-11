@@ -32,14 +32,21 @@ func (h *Healer) Heal(status *types.ServiceStatus, containerName string) bool {
 		return false
 	}
 
-	log.Printf("Attempting to heal %s by restarting container %s...", status.Name, containerName)
-
 	ctx := context.Background()
+	_, err := h.dockerCli.ContainerInspect(ctx, containerName)
+	if err != nil {
+		log.Printf("Cannot heal %s: container %s not found: %v", status.Name, containerName, err)
+		attempt := types.HealAttemp{Timestamp: time.Now(), Success: false, Error: err.Error()}
+		status.HealHistory = append(status.HealHistory, attempt)
+		return false
+	}
+
+	log.Printf("Attempting to heal %s by restarting container %s...", status.Name, containerName)
 	timeout := int(30 * time.Second / time.Second)
 	stopOptions := container.StopOptions{
 		Timeout: &timeout,
 	}
-	err := h.dockerCli.ContainerRestart(ctx, containerName, stopOptions)
+	err = h.dockerCli.ContainerRestart(ctx, containerName, stopOptions)
 	attempt := types.HealAttemp{Timestamp: time.Now()}
 
 	if err != nil {

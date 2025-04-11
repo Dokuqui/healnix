@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Dokuqui/healnix/internal/healer"
+	"github.com/Dokuqui/healnix/internal/history"
 	"github.com/Dokuqui/healnix/pkg/config"
 	"github.com/Dokuqui/healnix/pkg/types"
 )
@@ -17,15 +18,16 @@ import (
 type Monitor struct {
 	Services []config.Service
 	Statuses map[string]*types.ServiceStatus
+	History  *history.History
 	mu       sync.Mutex
 }
 
-func NewMonitor(cfg *config.Config) *Monitor {
+func NewMonitor(cfg *config.Config, hist *history.History) *Monitor {
 	statuses := make(map[string]*types.ServiceStatus)
 	for _, svc := range cfg.Services {
 		statuses[svc.Name] = &types.ServiceStatus{Name: svc.Name, Healthy: true}
 	}
-	return &Monitor{Services: cfg.Services, Statuses: statuses}
+	return &Monitor{Services: cfg.Services, Statuses: statuses, History: hist}
 }
 
 func (m *Monitor) Start() {
@@ -66,11 +68,20 @@ func (m *Monitor) checkService(svc config.Service) {
 			log.Printf("Service %s healthy (latency: %dms)", svc.Name, latency)
 		}
 
-		if !status.Healthy && svc.Heal != "" && status.ConsecutiveFails >= svc.FailureThreshold {
+		if !status.Healthy && svc.Heal != "" && status.ConsecutiveFails >= svc.FailureThreshold && !status.HealingInProgress {
+			status.HealingInProgress = true
+			m.mu.Unlock()
 			healer := healer.NewHealer()
 			success := healer.Heal(status, svc.ContainerName)
+			m.mu.Lock()
+			status.HealingInProgress = false
 			if success {
 				status.ConsecutiveFails = 0
+			}
+
+			if len(status.HealHistory) > 0 {
+				latestAttempt := status.HealHistory[len(status.HealHistory)-1]
+				m.History.SaveHealAttempt(svc.Name, latestAttempt)
 			}
 			log.Printf("Service %s heal history: %d attempts", svc.Name, len(status.HealHistory))
 		}

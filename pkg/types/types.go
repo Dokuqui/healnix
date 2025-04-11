@@ -9,10 +9,11 @@ type HealAttemp struct {
 }
 
 type ServiceStatus struct {
-	Name             string
-	Healthy          bool
-	Latency          int64
-	LastCheck        time.Time
-	ConsecutiveFails int
-	HealHistory      []HealAttemp
+	Name              string
+	Healthy           bool
+	Latency           int64
+	LastCheck         time.Time
+	ConsecutiveFails  int
+	HealHistory       []HealAttemp
+	HealingInProgress bool
 }
