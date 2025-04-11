@@ -18,11 +18,11 @@ import (
 type Monitor struct {
 	Services []config.Service
 	Statuses map[string]*types.ServiceStatus
-	History  *history.History
+	History  history.History
 	mu       sync.Mutex
 }
 
-func NewMonitor(cfg *config.Config, hist *history.History) *Monitor {
+func NewMonitor(cfg *config.Config, hist history.History) *Monitor {
 	statuses := make(map[string]*types.ServiceStatus)
 	for _, svc := range cfg.Services {
 		statuses[svc.Name] = &types.ServiceStatus{Name: svc.Name, Healthy: true}
@@ -98,4 +98,14 @@ func (m *Monitor) GetStatus(name string) *types.ServiceStatus {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.Statuses[name]
+}
+
+func (m *Monitor) PrintStatus() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, status := range m.Statuses {
+		log.Printf("Service: %s, Healthy: %v, Latency: %dms, LastCheck: %s, Fails: %d/%d",
+			status.Name, status.Healthy, status.Latency, status.LastCheck.Format(time.RFC3339),
+			status.ConsecutiveFails, m.Services[0].FailureThreshold)
+	}
 }
